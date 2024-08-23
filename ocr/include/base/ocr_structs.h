@@ -25,4 +25,10 @@ struct Angle {
     double time;
 };
 
+struct TextLine {
+    std::string text;
+    std::vector<float> char_scores;
+    double time;
+};
+
 } // namespace base
