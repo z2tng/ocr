@@ -21,6 +21,8 @@ public:
     static std::vector<cv::Point> GetMinBoxes(const std::vector<cv::Point> &points, float &min_side_len, float &perimeter);
     static float BoxScoreFast(const cv::Mat &feat, const std::vector<cv::Point> &box);
     static std::vector<cv::Point> UnClip(const std::vector<cv::Point> &box, float perimeter, float unclip_ratio);
+
+    static std::vector<int> GetAngleIndexes(const std::vector<base::Angle> &angles);
 };
 
 } // namespace utils

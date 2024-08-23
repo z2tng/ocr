@@ -19,4 +19,10 @@ struct TextBox {
     float score;
 };
 
+struct Angle {
+    int index;
+    float score;
+    double time;
+};
+
 } // namespace base

@@ -136,4 +136,12 @@ std::vector<cv::Point> OcrUtils::UnClip(const std::vector<cv::Point> &box, float
     return out_box;
 }
 
+std::vector<int> OcrUtils::GetAngleIndexes(const std::vector<base::Angle> &angles) {
+    std::vector<int> result(angles.size());
+    for (size_t i = 0; i < angles.size(); i++) {
+        result[i] = angles[i].index;
+    }
+    return result;
+}
+
 } // namespace utils
