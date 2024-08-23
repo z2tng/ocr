@@ -144,4 +144,25 @@ std::vector<int> OcrUtils::GetAngleIndexes(const std::vector<base::Angle> &angle
     return result;
 }
 
+void OcrUtils::DrawTextBox(cv::Mat &src, const cv::RotatedRect &rect, int thickness) {
+    cv::Point2f vertices[4];
+    rect.points(vertices);
+    for (int i = 0; i < 4; i++) {
+        cv::line(src, vertices[i], vertices[(i + 1) % 4], cv::Scalar(0, 0, 255), thickness);
+    }
+}
+
+void OcrUtils::DrawTextBox(cv::Mat &src, const std::vector<cv::Point> &points, int thickness) {
+    auto color = cv::Scalar(0, 0, 255);
+    for (int i = 0; i < 4; i++) {
+        cv::line(src, points[i], points[(i + 1) % 4], color, thickness);
+    }
+}
+
+void OcrUtils::DrawTextBoxes(cv::Mat &src, const std::vector<base::TextBox> &boxes, int thickness) {
+    for (const auto &box : boxes) {
+        DrawTextBox(src, box.points, thickness);
+    }
+}
+
 } // namespace utils

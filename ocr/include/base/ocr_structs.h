@@ -31,4 +31,29 @@ struct TextLine {
     double time;
 };
 
+struct TextBlock {
+    // 文本框检测结果
+    std::vector<cv::Point> box_points;
+    float box_score;
+    // 角度检测结果
+    int angle_index;
+    float angle_score;
+    double angle_time;
+    // 文本识别结果
+    std::string text;
+    std::vector<float> char_scores;
+    double crnn_time;
+
+    double block_time;
+};
+
+struct OcrResult {
+    std::vector<TextBlock> blocks;
+    cv::Mat box_image;
+    double box_time;
+
+    std::string str_result;
+    double det_time;
+};
+
 } // namespace base

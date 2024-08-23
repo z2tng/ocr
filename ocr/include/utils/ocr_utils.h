@@ -23,6 +23,10 @@ public:
     static std::vector<cv::Point> UnClip(const std::vector<cv::Point> &box, float perimeter, float unclip_ratio);
 
     static std::vector<int> GetAngleIndexes(const std::vector<base::Angle> &angles);
+
+    static void DrawTextBox(cv::Mat &src, const cv::RotatedRect &rect, int thickness);
+    static void DrawTextBox(cv::Mat &src, const std::vector<cv::Point> &points, int thickness);
+    static void DrawTextBoxes(cv::Mat &src, const std::vector<base::TextBox> &boxes, int thickness);
 };
 
 } // namespace utils
