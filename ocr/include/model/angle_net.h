@@ -38,7 +38,7 @@ private:
     const std::vector<float> norm_{1.0 / 127.5, 1.0 / 127.5, 1.0 / 127.5};
 
     const int dest_width_ = 192;
-    const int dest_height_ = 64;
+    const int dest_height_ = 32;
 };
 
 } // namespace model

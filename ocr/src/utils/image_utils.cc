@@ -16,24 +16,25 @@ cv::Mat ImageUtils::AdjustImageSize(const cv::Mat &src, int dest_width, int dest
     return dest;
 }
 
-cv::Mat GetRotateCropImage(const cv::Mat &src, const std::vector<cv::Point> &points) {
+cv::Mat ImageUtils::GetRotateCropImage(const cv::Mat &src, const std::vector<cv::Point> &points) {
     // 计算 box 的最小外接矩形
-    auto minmax_x = std::minmax_element(points.begin(), points.end(), [](const cv::Point &a, const cv::Point &b) { return a.x < b.x; });
-    auto minmax_y = std::minmax_element(points.begin(), points.end(), [](const cv::Point &a, const cv::Point &b) { return a.y < b.y; });
-
-    int left = std::max(0, minmax_x.first->x);
-    int right = std::min(src.cols, minmax_x.second->x);
-    int top = std::max(0, minmax_y.first->y);
-    int bottom = std::min(src.rows, minmax_y.second->y);
+    std::vector<int> points_x{points[0].x, points[1].x, points[2].x, points[3].x};
+    std::vector<int> points_y{points[0].y, points[1].y, points[2].y, points[3].y};
+    int left = int(*std::min_element(points_x.begin(), points_x.end()));
+    int right = int(*std::max_element(points_x.begin(), points_x.end()));
+    int top = int(*std::min_element(points_y.begin(), points_y.end()));
+    int bottom = int(*std::max_element(points_y.begin(), points_y.end()));
 
     // 裁剪图像
     cv::Mat crop_image = src(cv::Rect(left, top, right - left, bottom - top)).clone();
 
     // 调整 box 点的坐标
-    std::vector<cv::Point2f> adjust_points;
-    for (const auto &point : points) {
-        adjust_points.emplace_back(cv::Point2f(point.x - left, point.y - top));
-    }
+    std::vector<cv::Point2f> adjust_points{
+        cv::Point2f(points[0].x - left, points[0].y - top),
+        cv::Point2f(points[1].x - left, points[1].y - top),
+        cv::Point2f(points[2].x - left, points[2].y - top),
+        cv::Point2f(points[3].x - left, points[3].y - top)
+    };
 
     // 计算裁剪后的图像的宽高
     int crop_width = cv::norm(adjust_points[0] - adjust_points[1]);
@@ -42,9 +43,9 @@ cv::Mat GetRotateCropImage(const cv::Mat &src, const std::vector<cv::Point> &poi
     // 计算透视变换后的矩形区域
     std::vector<cv::Point2f> dest_points = {
         cv::Point2f(0.f, 0.f),
-        cv::Point2f(static_cast<float>(crop_width), 0.f),
-        cv::Point2f(static_cast<float>(crop_width), static_cast<float>(crop_height)),
-        cv::Point2f(0.f, static_cast<float>(crop_height))
+        cv::Point2f(crop_width, 0.f),
+        cv::Point2f(crop_width, crop_height),
+        cv::Point2f(0.f, crop_height)
     };
 
     // 透视变换
@@ -59,7 +60,7 @@ cv::Mat GetRotateCropImage(const cv::Mat &src, const std::vector<cv::Point> &poi
     return rotate_crop_image;
 }
 
-int GetThickness(const cv::Mat &box_image) {
+int ImageUtils::GetThickness(const cv::Mat &box_image) {
     int min_side = std::min(box_image.cols, box_image.rows);
     int thickness = min_side / 1000 + 2;
     return thickness;

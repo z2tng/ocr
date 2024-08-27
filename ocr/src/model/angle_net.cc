@@ -66,14 +66,13 @@ std::vector<base::Angle> AngleNet::GetAngles(const std::vector<cv::Mat> &images,
             angles[i] = base::Angle{-1, 0.0f};
         }
     }
-
     return angles;
 }
 
 base::Angle AngleNet::run(const cv::Mat &src) {
     std::vector<float> input_tensor_values = utils::OcrUtils::SubstractMeanNormalize(src, mean_, norm_);
 
-    std::array<int64_t, 4> input_shape{1, 3, src.rows, src.cols};
+    std::array<int64_t, 4> input_shape{1, src.channels(), src.rows, src.cols};
 
     Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
 

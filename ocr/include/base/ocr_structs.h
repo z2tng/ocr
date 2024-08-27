@@ -50,10 +50,10 @@ struct TextBlock {
 struct OcrResult {
     std::vector<TextBlock> blocks;
     cv::Mat box_image;
-    double box_time;
+    double det_time;
 
     std::string str_result;
-    double det_time;
+    double full_time;
 };
 
 } // namespace base

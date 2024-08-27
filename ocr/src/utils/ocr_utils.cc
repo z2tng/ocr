@@ -44,47 +44,36 @@ std::vector<float> OcrUtils::SubstractMeanNormalize(const cv::Mat &image, const 
 
 std::vector<cv::Point> OcrUtils::GetMinBoxes(const std::vector<cv::Point> &points, float &min_side_len, float &perimeter) {
     std::vector<cv::Point> min_box;
+    // 输出point的数据类型，是否是浮点型
     cv::RotatedRect rect = cv::minAreaRect(points);
 
     // 计算最小外接矩形的四个顶点
     cv::Mat box_points;
     cv::boxPoints(rect, box_points);
-
-    // 将box_points转换为float类型的指针
-    float *p1 = reinterpret_cast<float*>(box_points.data);
-    std::vector<cv::Point> temp_box;
+    std::vector<cv::Point> temp_box(4);
     for (int i = 0; i < 4; i++) {
-        temp_box.emplace_back(cv::Point2f(p1[i * 2], p1[i * 2 + 1]));
+        temp_box[i] = box_points.at<cv::Point2f>(i);
     }
-
     // 对temp_box按照x坐标进行排序
     std::sort(temp_box.begin(), temp_box.end(), [](const cv::Point &a, const cv::Point &b) {
         return a.x < b.x;
     });
 
     // 根据y坐标的大小，得到四个点的索引
-    int index1, index2, index3, index4;
-    if (temp_box[0].y < temp_box[1].y) {
-        index1 = 0;
-        index4 = 1;
-    } else {
-        index1 = 1;
-        index4 = 0;
+    int left_top = 0, left_bottom = 1;
+    int right_top = 2, right_bottom = 3;
+    if (temp_box[0].y > temp_box[1].y) {
+        left_top = 1;
+        left_bottom = 0;
     }
-
-    if (temp_box[2].y < temp_box[3].y) {
-        index2 = 2;
-        index3 = 3;
-    } else {
-        index2 = 3;
-        index3 = 2;
+    if (temp_box[2].y > temp_box[3].y) {
+        right_top = 3;
+        right_bottom = 2;
     }
-
-    min_box.clear();
-    min_box.emplace_back(temp_box[index1]);
-    min_box.emplace_back(temp_box[index2]);
-    min_box.emplace_back(temp_box[index3]);
-    min_box.emplace_back(temp_box[index4]);
+    min_box.emplace_back(temp_box[left_top]);
+    min_box.emplace_back(temp_box[right_top]);
+    min_box.emplace_back(temp_box[right_bottom]);
+    min_box.emplace_back(temp_box[left_bottom]);
 
     min_side_len = std::min(rect.size.width, rect.size.height);
     perimeter = 2.0f * (rect.size.width + rect.size.height);
@@ -93,22 +82,31 @@ std::vector<cv::Point> OcrUtils::GetMinBoxes(const std::vector<cv::Point> &point
 }
 
 float OcrUtils::BoxScoreFast(const cv::Mat &feat, const std::vector<cv::Point> &box) {
+    std::vector<cv::Point> box_temp(box);
     int width = feat.cols;
     int height = feat.rows;
 
-    // 计算边界框
-    cv::Rect bounding_box = cv::boundingRect(box);
-    int min_x = std::max(0, bounding_box.x);
-    int max_x = std::min(width - 1, bounding_box.x + bounding_box.width);
-    int min_y = std::max(0, bounding_box.y);
-    int max_y = std::min(height - 1, bounding_box.y + bounding_box.height);
+    int min_x = width - 1, min_y = height - 1;
+    int max_x = 0, max_y = 0;
+    // 计算最小外接矩形的两个顶点
+    for (const auto &point : box) {
+        min_x = std::min(min_x, point.x);
+        min_y = std::min(min_y, point.y);
+        max_x = std::max(max_x, point.x);
+        max_y = std::max(max_y, point.y);
+    }
+
+    for (auto &point : box_temp) {
+        point.x -= min_x;
+        point.y -= min_y;
+    }
 
     // 创建 mask
     cv::Mat mask(max_y - min_y + 1, max_x - min_x + 1, CV_8UC1, cv::Scalar(0, 0, 0));
-    cv::fillPoly(mask, {box}, cv::Scalar(1, 1, 1), 1);
+    cv::fillPoly(mask, {box_temp}, cv::Scalar(1, 1, 1), 1);
 
     // 计算指定区域的平均值，即平均像素强度
-    cv::Mat region(feat(cv::Rect(min_x, min_y, max_x - min_x, max_y - min_y)).clone());
+    cv::Mat region(feat(cv::Rect(cv::Point(min_x, min_y), cv::Point(max_x + 1, max_y + 1))).clone());
     return cv::mean(region, mask).val[0];
 }
 
@@ -121,16 +119,16 @@ std::vector<cv::Point> OcrUtils::UnClip(const std::vector<cv::Point> &box, float
     double distance = unclip_ratio * ClipperLib::Area(poly) / static_cast<double>(perimeter);
 
     ClipperLib::ClipperOffset offset;
-    offset.AddPath(poly, ClipperLib::jtRound, ClipperLib::etClosedPolygon);
+    offset.AddPath(poly, ClipperLib::JoinType::jtRound, ClipperLib::EndType::etClosedPolygon);
 
     ClipperLib::Paths polys;
     polys.push_back(poly);
     offset.Execute(polys, distance);
 
     std::vector<cv::Point> out_box;
-    for (const auto &path : polys) {
-        for (const auto &point : path) {
-            out_box.emplace_back(cv::Point(point.X, point.Y));
+    for (const auto &poly : polys) {
+        for (const auto &point : poly) {
+            out_box.emplace_back(point.X, point.Y);
         }
     }
     return out_box;

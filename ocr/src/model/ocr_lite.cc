@@ -4,11 +4,13 @@
 #include "utils/image_utils.h"
 #include "utils/time_utils.h"
 
+#include <fstream>
+
 namespace model {
 
 void OcrLite::Init(const std::string &det_path, const std::string &cls_path, const std::string &rec_path, const std::string &keys_path) {
-    angle_net_.Init(cls_path);
     db_net_.Init(det_path);
+    angle_net_.Init(cls_path);
     crnn_net_.Init(rec_path, keys_path);
 }
 
@@ -18,14 +20,14 @@ void OcrLite::SetNumThreads(int num_threads) {
     crnn_net_.SetNumThreads(num_threads);
 }
 
-base::OcrResult OcrLite::Process(const std::string &path, const std::string &image_name, int padding, int max_side_len, float box_score_threshold, float box_threshold, float unclip_ratio, bool cal_angle, bool cal_most_angle) {
-    std::string image_path = utils::FileUtils::JoinPath(path, image_name);
+base::OcrResult OcrLite::Process(const std::string &image_dir, const std::string &image_name, int padding, int max_side_len, float box_score_threshold, float box_threshold, float unclip_ratio, bool cal_angle, bool cal_most_angle) {
+    std::string image_path = utils::FileUtils::JoinPath(image_dir, image_name);
 
-    cv::Mat src_bgr = cv::imread(path, cv::IMREAD_COLOR); // BGR image
+    cv::Mat src_bgr = cv::imread(image_path, cv::IMREAD_COLOR); // BGR image
     cv::Mat src_rgb;
     cv::cvtColor(src_bgr, src_rgb, cv::COLOR_BGR2RGB); // RGB image
 
-    // 
+    // 图像预处理
     int max_side = std::max(src_rgb.cols, src_rgb.rows);
     int resize = max_side_len <= 0 || max_side_len >= max_side ? max_side : max_side_len;
     resize += 2 * padding;
@@ -33,7 +35,7 @@ base::OcrResult OcrLite::Process(const std::string &path, const std::string &ima
     cv::Mat src_padding = MakePadding(src_rgb, padding);
     base::ScaleParam scale_param = utils::ImageUtils::GetScaleParam(src_padding, resize);
 
-    return process(path, image_name, src_padding, padding_rect, scale_param, box_score_threshold, box_threshold, unclip_ratio, cal_angle, cal_most_angle);
+    return process(image_dir, image_name, src_padding, padding_rect, scale_param, box_score_threshold, box_threshold, unclip_ratio, cal_angle, cal_most_angle);
 }
 
 base::OcrResult OcrLite::Process(cv::Mat &src, int padding, int max_side_len, float box_score_threshold, float box_threshold, float unclip_ratio, bool cal_angle, bool cal_most_angle) {
@@ -72,7 +74,7 @@ std::vector<cv::Mat> OcrLite::GetBoxImages(const cv::Mat &src, std::vector<base:
     return box_images;
 }
 
-base::OcrResult OcrLite::process(const std::string &path, const std::string &image_name, cv::Mat &src, cv::Rect &orignal_rect, base::ScaleParam &scale_param, float box_score_threshold, float box_threshold, float unclip_ratio, bool cal_angle, bool cal_most_angle) {
+base::OcrResult OcrLite::process(const std::string &image_dir, const std::string &image_name, cv::Mat &src, cv::Rect &orignal_rect, base::ScaleParam &scale_param, float box_score_threshold, float box_threshold, float unclip_ratio, bool cal_angle, bool cal_most_angle) {
     cv::Mat text_box_padding_image = src.clone();
     int thickness = utils::ImageUtils::GetThickness(src);
 
@@ -84,10 +86,10 @@ base::OcrResult OcrLite::process(const std::string &path, const std::string &ima
     // TODO: LOG_INFO det
 
     utils::OcrUtils::DrawTextBoxes(text_box_padding_image, boxes, thickness);
-
+    
     // 角度检测
-    std::vector<cv::Mat> box_images = GetBoxImages(src, boxes, path, image_name);
-    std::vector<base::Angle> angles = angle_net_.GetAngles(box_images, path, image_name, cal_angle, cal_most_angle);
+    std::vector<cv::Mat> box_images = GetBoxImages(src, boxes, image_dir, image_name);
+    std::vector<base::Angle> angles = angle_net_.GetAngles(box_images, image_dir, image_name, cal_angle, cal_most_angle);
     // TODO: LOG_INFO cls
 
     // 文本识别
@@ -97,8 +99,7 @@ base::OcrResult OcrLite::process(const std::string &path, const std::string &ima
             cv::rotate(box_images[i], box_images[i], cv::ROTATE_180);
         }
     }
-    
-    std::vector<base::TextLine> text_lines = crnn_net_.GetTextLines(box_images, path, image_name);
+    std::vector<base::TextLine> text_lines = crnn_net_.GetTextLines(box_images, image_dir, image_name);
     // TODO: LOG_INFO rec
 
     // 合并结果
@@ -135,24 +136,42 @@ base::OcrResult OcrLite::process(const std::string &path, const std::string &ima
         rgb_box_image = text_box_padding_image;
     }
     cv::cvtColor(rgb_box_image, text_box_image, cv::COLOR_RGB2BGR);
-
-    // 保存结果
-    if (is_output_result_image_) {
-        std::string image_path = utils::FileUtils::JoinPath(output_path_, image_name + "_result.jpg");
-        cv::imwrite(image_path, text_box_image);
-    }
-    
+        
     std::string str_result;
     for (const auto &block : text_blocks) {
         str_result += block.text + "\n";
     }
 
+    // 保存结果
+    if (is_output_console_) {
+        std::cout << str_result << std::endl;
+    }
+
+    if (is_output_part_image_) {
+        for (size_t i = 0; i < box_images.size(); ++i) {
+            std::string image_path = utils::FileUtils::JoinPath(image_dir, image_name + "_" + std::to_string(i) + "_part.jpg");
+            cv::imwrite(image_path, box_images[i]);
+        }
+    }
+
+    if (is_output_result_image_) {
+        std::string image_path = utils::FileUtils::JoinPath(image_dir, image_name + "_result.jpg");
+        cv::imwrite(image_path, text_box_image);
+    }
+
+    if (is_output_result_text_) {
+        std::string text_path = utils::FileUtils::JoinPath(image_dir, image_name + "_result.txt");
+        std::ofstream ofs(text_path);
+        ofs << str_result;
+        ofs.close();
+    }
+
     return base::OcrResult{
         text_blocks,
         text_box_image,
-        full_time,
+        det_time,
         str_result,
-        det_time
+        full_time
     };
 }
     

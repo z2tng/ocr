@@ -41,7 +41,7 @@ std::vector<base::TextBox> DbNet::FindRsBoxes(const cv::Mat &feat, const cv::Mat
         if (min_side_len < min_area) continue;
 
         // 计算box得分
-        float score = utils::OcrUtils::BoxScoreFast(feat, min_box);
+        float score = utils::OcrUtils::BoxScoreFast(feat, contour);
         if (score < box_score_threshold) continue;
 
         // 截取 box
@@ -50,10 +50,10 @@ std::vector<base::TextBox> DbNet::FindRsBoxes(const cv::Mat &feat, const cv::Mat
         if (min_side_len < min_area + 2) continue;
 
         for (auto &point : clip_min_box) {
-            point.x = point.x * scale_param.ratio_w;
-            point.x = std::max(0, std::min(point.x, scale_param.src_width - 1));
-            point.y = point.y * scale_param.ratio_h;
-            point.y = std::max(0, std::min(point.y, scale_param.src_height - 1));
+            point.x = point.x / scale_param.ratio_w;
+            point.x = std::min(std::max(0, point.x), scale_param.src_width);
+            point.y = point.y / scale_param.ratio_h;
+            point.y = std::min(std::max(0, point.y), scale_param.src_height);
         }
         boxes.emplace_back(base::TextBox{clip_min_box, score});
     }
@@ -67,7 +67,7 @@ std::vector<base::TextBox> DbNet::GetTextBoxes(cv::Mat &src, base::ScaleParam &s
 
     // 预处理
     auto input_data = utils::OcrUtils::SubstractMeanNormalize(src_resize, mean_, norm_);
-    std::array<int64_t, 4> input_shape{1, 3, src_resize.rows, src_resize.cols};
+    std::array<int64_t, 4> input_shape{1, src_resize.channels(), src_resize.rows, src_resize.cols};
     auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
 
     // 创建输入tensor

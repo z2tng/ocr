@@ -88,12 +88,12 @@ base::TextLine CrnnNet::run(const cv::Mat &src) {
     cv::Mat src_resize;
     cv::resize(src, src_resize, cv::Size(dest_width, dest_height_));
 
-    std::vector<float> input_data = utils::OcrUtils::SubstractMeanNormalize(src, mean_, norm_);
-    std::vector<int64_t> input_shape = {1, 3, src.rows, src.cols};
+    std::vector<float> input_data = utils::OcrUtils::SubstractMeanNormalize(src_resize, mean_, norm_);
+    std::vector<int64_t> input_shape = {1, src_resize.channels(), src_resize.rows, src_resize.cols};
 
     Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
     Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, input_data.data(), input_data.size(), input_shape.data(), input_shape.size());
-
+    
     std::vector<const char*> input_names = {input_name_.c_str()};
     std::vector<const char*> output_names = {output_name_.c_str()};
     std::vector<Ort::Value> output_tensors = session_->Run(Ort::RunOptions{nullptr}, input_names.data(), &input_tensor, input_names.size(), output_names.data(), output_names.size());

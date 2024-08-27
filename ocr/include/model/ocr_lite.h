@@ -14,13 +14,24 @@ namespace model {
 
 class OcrLite {
 public:
-    OcrLite() = default;
+    OcrLite() : is_output_console_(false),
+                is_output_part_image_(false),
+                is_output_result_text_(false),
+                is_output_result_image_(false),
+                output_path_("./") {}
     ~OcrLite() = default;
 
-    void Init(const std::string &cls_path, const std::string &det_path, const std::string &rec_path, const std::string &keys_path);
+    void SetOutputConsole(bool is_output_console) { is_output_console_ = is_output_console; }
+    void SetOutputPartImage(bool is_output_part_image) { is_output_part_image_ = is_output_part_image; }
+    void SetOutputResultText(bool is_output_result_text) { is_output_result_text_ = is_output_result_text; }
+    void SetOutputResultImage(bool is_output_result_image) { is_output_result_image_ = is_output_result_image; }
+
+    void SetOutputPath(const std::string &output_path) { output_path_ = output_path; }
+
+    void Init(const std::string &det_path, const std::string &cls_path, const std::string &rec_path, const std::string &keys_path);
     void SetNumThreads(int num_threads);
 
-    base::OcrResult Process(const std::string &path, const std::string &image_name, int padding, int max_side_len, float box_score_threshold, float box_threshold, float unclip_ratio, bool cal_angle, bool cal_most_angle);
+    base::OcrResult Process(const std::string &image_dir, const std::string &image_name, int padding, int max_side_len, float box_score_threshold, float box_threshold, float unclip_ratio, bool cal_angle, bool cal_most_angle);
 
     base::OcrResult Process(cv::Mat &src, int padding, int max_side_len, float box_score_threshold, float box_threshold, float unclip_ratio, bool cal_angle, bool cal_most_angle);
 
@@ -36,7 +47,7 @@ private:
     bool is_output_result_text_;
     bool is_output_result_image_;
 
-    std::string output_path_;
+    std::string output_path_; // 默认为pwd
 
     AngleNet angle_net_;
     DbNet db_net_;
