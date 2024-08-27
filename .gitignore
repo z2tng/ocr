@@ -3,3 +3,5 @@
 ocr/build/
 ocr/bin/
 ocr/lib/
+ocr/temp/
+ocr/models/*
