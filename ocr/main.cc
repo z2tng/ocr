@@ -30,7 +30,7 @@ void GetOpt(std::unordered_map<std::string, std::string> &opt_map, int argc, cha
     for (int i = 1; i < argc; i++) {
         std::string opt = argv[i];
         if (opt[0] == '-') {
-            if (i + 1 < argc) {
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
                 opt_map[opt] = argv[i + 1];
                 i++;
             } else {
@@ -142,9 +142,18 @@ int main(int argc, char **argv) {
     model::OcrLite ocr_lite;
     ocr_lite.Init(det_path, cls_path, rec_path, keys_path);
     ocr_lite.SetNumThreads(num_threads);
-    ocr_lite.SetOutputPartImage(true);
-    ocr_lite.SetOutputResultText(true);
-    ocr_lite.SetOutputResultImage(true);
+    if (opt_map.count("--output_console")) {
+        ocr_lite.SetOutputConsole(true);
+    }
+    if (opt_map.count("--output_part_image")) {
+        ocr_lite.SetOutputPartImage(true);
+    }
+    if (opt_map.count("--output_result_text")) {
+        ocr_lite.SetOutputResultText(true);
+    }
+    if (opt_map.count("--output_result_image")) {
+        ocr_lite.SetOutputResultImage(true);
+    }
 
     // LOG_INFO
 

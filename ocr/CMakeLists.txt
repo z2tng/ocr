@@ -43,7 +43,7 @@ target_link_libraries(ocr_shared ${LINK_LIB} ${OpenCV_LIBS} OpenMP::OpenMP_CXX)
 
 # 生成可执行文件
 add_executable(OcrLiteOnnx ${MAIN_SRC_FILE})
-target_link_libraries(OcrLiteOnnx ocr_static ${OnnxRuntime_LIBS} ${OpenCV_LIBS} OpenMP::OpenMP_CXX stdc++fs)
+target_link_libraries(OcrLiteOnnx ocr_static ${LINK_LIB} ${OpenCV_LIBS} OpenMP::OpenMP_CXX stdc++fs)
 
 # 安装设置
 install(TARGETS OcrLiteOnnx DESTINATION ${EXEC_INSTALL_DIR})

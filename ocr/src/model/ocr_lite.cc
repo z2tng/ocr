@@ -47,7 +47,7 @@ base::OcrResult OcrLite::Process(cv::Mat &src, int padding, int max_side_len, fl
     base::ScaleParam scale_param = utils::ImageUtils::GetScaleParam(src_padding, resize);
 
     std::string image_name = "image" + std::to_string(utils::TimeUtils::now());
-    return process(output_path_, image_name, src, padding_rect, scale_param, box_score_threshold, box_threshold, unclip_ratio, cal_angle, cal_most_angle);
+    return process(output_path_, image_name, src_padding, padding_rect, scale_param, box_score_threshold, box_threshold, unclip_ratio, cal_angle, cal_most_angle);
 }
 
 cv::Mat OcrLite::MakePadding(cv::Mat &src, const int padding, const cv::Scalar &padding_value) {
@@ -56,7 +56,7 @@ cv::Mat OcrLite::MakePadding(cv::Mat &src, const int padding, const cv::Scalar &
     cv::Mat result;
     if (src.empty()) return result;
 
-    cv::copyMakeBorder(src, result, padding, padding, padding, padding, cv::BORDER_CONSTANT, padding_value);
+    cv::copyMakeBorder(src, result, padding, padding, padding, padding, cv::BORDER_ISOLATED, padding_value);
     return result;
 }
 
@@ -91,25 +91,28 @@ base::OcrResult OcrLite::process(const std::string &image_dir, const std::string
     std::vector<cv::Mat> box_images = GetBoxImages(src, boxes, image_dir, image_name);
     std::vector<base::Angle> angles = angle_net_.GetAngles(box_images, image_dir, image_name, cal_angle, cal_most_angle);
     // TODO: LOG_INFO cls
-
-    // 文本识别
     // 根据角度旋转文本框
     for (size_t i = 0; i < boxes.size(); ++i) {
         if (angles[i].index == 0) {
-            cv::rotate(box_images[i], box_images[i], cv::ROTATE_180);
+            // 旋转 180 度
+            flip(box_images[i], box_images[i], 0);
+            flip(box_images[i], box_images[i], 1);
         }
     }
+
+    // 文本识别
     std::vector<base::TextLine> text_lines = crnn_net_.GetTextLines(box_images, image_dir, image_name);
     // TODO: LOG_INFO rec
 
     // 合并结果
     std::vector<base::TextBlock> text_blocks;
     for (size_t i = 0; i < text_lines.size(); ++i) {
+        int padding = orignal_rect.x;
         std::vector<cv::Point> box_points = {
-            boxes[i].points[0] - cv::Point(orignal_rect.x, orignal_rect.y),
-            boxes[i].points[1] - cv::Point(orignal_rect.x, orignal_rect.y),
-            boxes[i].points[2] - cv::Point(orignal_rect.x, orignal_rect.y),
-            boxes[i].points[3] - cv::Point(orignal_rect.x, orignal_rect.y)
+            boxes[i].points[0] - cv::Point(padding, padding),
+            boxes[i].points[1] - cv::Point(padding, padding),
+            boxes[i].points[2] - cv::Point(padding, padding),
+            boxes[i].points[3] - cv::Point(padding, padding)
         };
         text_blocks.emplace_back(
             base::TextBlock{
@@ -125,7 +128,6 @@ base::OcrResult OcrLite::process(const std::string &image_dir, const std::string
             }
         );
     }
-
     double full_time = utils::TimeUtils::now() - det_start;
 
     // 修剪图片至原始大小，并转换为BGR格式

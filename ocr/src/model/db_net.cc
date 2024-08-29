@@ -28,7 +28,7 @@ void DbNet::Init(const std::string &model_path) {
     utils::OcrUtils::GetOutputName(session_, output_name_);
 }
 
-std::vector<base::TextBox> DbNet::FindRsBoxes(const cv::Mat &feat, const cv::Mat &binary_feat, base::ScaleParam &scale_param, float box_score_threshold, float box_threshold, float unclip_ratio) {
+std::vector<base::TextBox> DbNet::FindRsBoxes(const cv::Mat &feat, const cv::Mat &binary_feat, base::ScaleParam &scale_param, float box_score_threshold, float unclip_ratio) {
     const float min_area = 3.0;
     std::vector<base::TextBox> boxes;
     std::vector<std::vector<cv::Point>> contours;
@@ -68,7 +68,7 @@ std::vector<base::TextBox> DbNet::GetTextBoxes(cv::Mat &src, base::ScaleParam &s
     // 预处理
     auto input_data = utils::OcrUtils::SubstractMeanNormalize(src_resize, mean_, norm_);
     std::array<int64_t, 4> input_shape{1, src_resize.channels(), src_resize.rows, src_resize.cols};
-    auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+    auto memory_info = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU);
 
     // 创建输入tensor
     Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, input_data.data(), input_data.size(), input_shape.data(), input_shape.size());
@@ -77,17 +77,15 @@ std::vector<base::TextBox> DbNet::GetTextBoxes(cv::Mat &src, base::ScaleParam &s
     std::vector<const char*> output_names = {output_name_.c_str()};
 
     // 获取输出tensor
-    auto output_tensors = session_->Run(Ort::RunOptions{nullptr}, input_names.data(), &input_tensor, input_names.size(), output_names.data(), output_names.size());
+    auto output_tensor = session_->Run(Ort::RunOptions{nullptr}, input_names.data(), &input_tensor, input_names.size(), output_names.data(), output_names.size());
 
-    // 获取输出tensor的数据
-    float* output_data = output_tensors.front().GetTensorMutableData<float>();
-
-    // 获取特征图
+    // 获取输出tensor的数据, 构建特征图
+    float* output_data = output_tensor.front().GetTensorMutableData<float>();
     cv::Mat feat(src_resize.rows, src_resize.cols, CV_32FC1, output_data);
     cv::Mat binary_feat = feat > box_threshold;
 
     // 查找文本框
-    return FindRsBoxes(feat, binary_feat, scale_param, box_score_threshold, box_threshold, unclip_ratio);
+    return FindRsBoxes(feat, binary_feat, scale_param, box_score_threshold, unclip_ratio);
 }
 
 } // namespace model

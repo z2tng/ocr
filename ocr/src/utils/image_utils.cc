@@ -3,17 +3,21 @@
 namespace utils {
 
 cv::Mat ImageUtils::AdjustImageSize(const cv::Mat &src, int dest_width, int dest_height) {
-    float scale = static_cast<float>(dest_width) / src.cols;
+    float scale = static_cast<float>(dest_height) / src.rows;
     int scaled_width = static_cast<int>(src.cols * scale);
 
-    cv::Mat dest;
-    cv::resize(src, dest, cv::Size(scaled_width, dest_height));
+    cv::Mat src_resize;
+    cv::resize(src, src_resize, cv::Size(scaled_width, dest_height));
 
-    cv::Mat output_image(dest_height, dest_width, CV_8UC3, cv::Scalar(255, 255, 255));
-
-    cv::Rect roi(0, 0, std::min(scaled_width, dest_width), dest_height);
-    dest(roi).copyTo(output_image(roi));
-    return dest;
+    cv::Mat src_fit(dest_height, dest_width, CV_8UC3, cv::Scalar(255, 255, 255));
+    if (scaled_width < dest_width) {
+        cv::Rect roi(0, 0, src_resize.cols, src_resize.rows);
+        src_resize(roi).copyTo(src_fit(roi));
+    } else {
+        cv::Rect roi(0, 0, dest_width, dest_height);
+        src_resize(roi).copyTo(src_fit);
+    }
+    return src_fit;
 }
 
 cv::Mat ImageUtils::GetRotateCropImage(const cv::Mat &src, const std::vector<cv::Point> &points) {
@@ -70,10 +74,15 @@ base::ScaleParam ImageUtils::GetScaleParam(const cv::Mat &src, float scale) {
     int src_width = src.cols;
     int src_height = src.rows;
     int dest_width = static_cast<int>(src_width * scale);
+    if (dest_width % 32 != 0) {
+        dest_width = (dest_width / 32) * 32;
+        dest_width = std::max(32, dest_width);
+    }
     int dest_height = static_cast<int>(src_height * scale);
-
-    dest_width = dest_width % 32 == 0 ? dest_width : (dest_width / 32 + 1) * 32;
-    dest_height = dest_height % 32 == 0 ? dest_height : (dest_height / 32 + 1) * 32;
+    if (dest_height % 32 != 0) {
+        dest_height = (dest_height / 32) * 32;
+        dest_height = std::max(32, dest_height);
+    }
 
     float scale_w = static_cast<float>(dest_width) / src_width;
     float scale_h = static_cast<float>(dest_height) / src_height;
@@ -82,8 +91,8 @@ base::ScaleParam ImageUtils::GetScaleParam(const cv::Mat &src, float scale) {
 
 base::ScaleParam ImageUtils::GetScaleParam(const cv::Mat &src, int target_max_side_len) {
     int max_side = std::max(src.cols, src.rows);
-    float scale = target_max_side_len <= 0 || target_max_side_len >= max_side ? 1.0f : static_cast<float>(target_max_side_len) / max_side;
-    return GetScaleParam(src, scale);
+    float ratio = static_cast<float>(target_max_side_len) / max_side;
+    return GetScaleParam(src, ratio);
 }
 
 } // namespace utils

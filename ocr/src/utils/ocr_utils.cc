@@ -30,16 +30,18 @@ void OcrUtils::GetOutputName(std::shared_ptr<Ort::Session> session, std::string 
 }
 
 std::vector<float> OcrUtils::SubstractMeanNormalize(const cv::Mat &image, const std::vector<float> &mean, const std::vector<float> &norm) {
-    cv::Mat float_image;
-    image.convertTo(float_image, CV_32FC3);
+    auto size = image.cols * image.rows * image.channels();
+    std::vector<float> result(size);
+    size_t num_channels = image.channels();
+    size_t image_size = image.cols * image.rows;
 
-    cv::Mat normalized_image;
-    cv::subtract(float_image, cv::Scalar(mean[0], mean[1], mean[2]), normalized_image);
-    cv::multiply(normalized_image, cv::Scalar(norm[0], norm[1], norm[2]), normalized_image);
-
-    std::vector<float> input_data;
-    input_data.assign((float*)normalized_image.datastart, (float*)normalized_image.dataend);
-    return input_data;
+    for (size_t pos = 0; pos < image_size; pos++) {
+        for (size_t ch = 0; ch < num_channels; ++ch) {
+            float data = static_cast<float>((image.data[num_channels * pos + ch] - mean[ch]) * norm[ch]);
+            result[ch * image_size + pos] = data;
+        }
+    }
+    return result;
 }
 
 std::vector<cv::Point> OcrUtils::GetMinBoxes(const std::vector<cv::Point> &points, float &min_side_len, float &perimeter) {
@@ -106,7 +108,7 @@ float OcrUtils::BoxScoreFast(const cv::Mat &feat, const std::vector<cv::Point> &
     cv::fillPoly(mask, {box_temp}, cv::Scalar(1, 1, 1), 1);
 
     // 计算指定区域的平均值，即平均像素强度
-    cv::Mat region(feat(cv::Rect(cv::Point(min_x, min_y), cv::Point(max_x + 1, max_y + 1))).clone());
+    cv::Mat region = feat(cv::Rect(cv::Point(min_x, min_y), cv::Point(max_x + 1, max_y + 1))).clone();
     return cv::mean(region, mask).val[0];
 }
 
